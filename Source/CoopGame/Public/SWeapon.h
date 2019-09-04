@@ -57,6 +57,13 @@ protected:
 	void PlayFireEffects();
 
 	virtual void Fire();
+	
+
+
+	UFUNCTION()
+	void Reload();
+
+	FTimerHandle TimerHandle_Reload;
 
 	FTimerHandle TimerHandle_TimeBetweenShots;
 
@@ -67,6 +74,18 @@ protected:
 
 	float TimeBetweenShots;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	int32 CurrentAmmoAmount;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	int32 ClipSize;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	int32 RemainingAmmo;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	int32 TotalAmmo;
+
 public:	
 	
 
@@ -75,4 +94,10 @@ public:
 
 	UFUNCTION()
 	void StopFire();
+
+	UFUNCTION()
+	void StartReload();
+
+	UPROPERTY()
+	bool bReloading;
 };

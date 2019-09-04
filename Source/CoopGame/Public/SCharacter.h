@@ -61,6 +61,9 @@ protected:
 	UFUNCTION()
 	void StopFire();
 
+	UFUNCTION()
+	void Reload();
+
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;

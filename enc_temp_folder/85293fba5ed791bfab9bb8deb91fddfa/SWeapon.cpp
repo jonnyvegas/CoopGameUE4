@@ -124,12 +124,12 @@ void ASWeapon::Reload()
 	{
 		if (RemainingAmmo > 20)
 		{
-			RemainingAmmo -= ClipSize - CurrentAmmoAmount;
+			RemainingAmmo -= ClipSize;
 			CurrentAmmoAmount = ClipSize;
 		}
 		else
 		{
-			CurrentAmmoAmount = RemainingAmmo;
+			CurrentAmmoAmount = ClipSize;
 			ClipSize = 0;
 		}
 	}
