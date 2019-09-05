@@ -8,6 +8,9 @@
 #include "GameFramework/PawnMovementComponent.h"
 #include "SWeapon.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/SHealthComp.h"
+#include "Components/CapsuleComponent.h"
+#include "CoopGame.h"
 
 
 // Sets default values
@@ -25,6 +28,10 @@ ASCharacter::ASCharacter()
 	ZoomedFOV = 65.f;
 	ZoomInterpSpeed = 20.f;
 	AttachSocketName = "WeaponSocket";
+	HealthComp = CreateDefaultSubobject<USHealthComp>(TEXT("HealthComp"));
+	GetCapsuleComponent()->SetCollisionResponseToChannel(COLLISION_WEAPON, ECR_Ignore);
+	HealthComp->OnHealthChanged.AddDynamic(this, &ASCharacter::OnHealthChanged);
+	bPawnDied = false;
 }
 
 // Called when the game starts or when spawned
@@ -81,6 +88,20 @@ void ASCharacter::Reload()
 	if (CurrentWeapon && !CurrentWeapon->bReloading)
 	{
 		CurrentWeapon->StartReload();
+	}
+}
+
+void ASCharacter::OnHealthChanged(USHealthComp* HealthComp, float Health, float HealthDelta, const class UDamageType* DamageType, 
+	class AController* InstigatedBy, AActor* DamageCauser)
+{
+	if (Health <= 0.f && !bPawnDied)
+	{
+		// Die!
+		GetMovementComponent()->StopMovementImmediately();
+		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		bPawnDied = true;
+		DetachFromControllerPendingDestroy();
+		SetLifeSpan(10.f);
 	}
 }
 

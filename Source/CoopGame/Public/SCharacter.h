@@ -25,6 +25,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	class USpringArmComponent* SpringArmComp;
 
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	class USHealthComp* HealthComp;
+
 	UPROPERTY()
 	bool bWantsToZoom;
 
@@ -63,6 +66,12 @@ protected:
 
 	UFUNCTION()
 	void Reload();
+
+	UFUNCTION()
+	void OnHealthChanged(USHealthComp* HealthComponent, float Health, float HealthDelta, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
+
+	UPROPERTY(BlueprintReadOnly, Category = "Player")
+	bool bPawnDied;
 
 public:	
 	// Called every frame
