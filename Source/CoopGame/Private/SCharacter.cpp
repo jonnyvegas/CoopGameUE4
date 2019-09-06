@@ -11,6 +11,7 @@
 #include "Components/SHealthComp.h"
 #include "Components/CapsuleComponent.h"
 #include "CoopGame.h"
+#include "Net/UnrealNetwork.h"
 
 
 // Sets default values
@@ -39,15 +40,18 @@ void ASCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	DefaultFOV = CameraComp->FieldOfView;
-	if (WeaponClass)
+	if (Role == ROLE_Authority)
 	{
-		FActorSpawnParameters SpawnParams;
-		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-		CurrentWeapon = GetWorld()->SpawnActor<ASWeapon>(WeaponClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
-		if (CurrentWeapon)
+		if (WeaponClass)
 		{
-			CurrentWeapon->SetOwner(this);
-			CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, AttachSocketName);
+			FActorSpawnParameters SpawnParams;
+			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			CurrentWeapon = GetWorld()->SpawnActor<ASWeapon>(WeaponClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+			if (CurrentWeapon)
+			{
+				CurrentWeapon->SetOwner(this);
+				CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, AttachSocketName);
+			}
 		}
 	}
 }
@@ -91,7 +95,7 @@ void ASCharacter::Reload()
 	}
 }
 
-void ASCharacter::OnHealthChanged(USHealthComp* HealthComp, float Health, float HealthDelta, const class UDamageType* DamageType, 
+void ASCharacter::OnHealthChanged(USHealthComp* HealthComponent, float Health, float HealthDelta, const class UDamageType* DamageType, 
 	class AController* InstigatedBy, AActor* DamageCauser)
 {
 	if (Health <= 0.f && !bPawnDied)
@@ -174,3 +178,10 @@ FVector ASCharacter::GetPawnViewLocation() const
 	return Super::GetPawnViewLocation();
 }
 
+void ASCharacter::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ASCharacter, CurrentWeapon); 
+	DOREPLIFETIME(ASCharacter, bPawnDied);
+}

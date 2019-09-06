@@ -46,7 +46,7 @@ protected:
 	UFUNCTION()
 	void EndZoom();
 
-	UPROPERTY()
+	UPROPERTY(Replicated)
 	class ASWeapon* CurrentWeapon;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Player")
@@ -70,7 +70,7 @@ protected:
 	UFUNCTION()
 	void OnHealthChanged(USHealthComp* HealthComponent, float Health, float HealthDelta, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
 
-	UPROPERTY(BlueprintReadOnly, Category = "Player")
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Player")
 	bool bPawnDied;
 
 public:	

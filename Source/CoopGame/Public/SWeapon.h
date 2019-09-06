@@ -8,6 +8,18 @@
 
 class UDamageType;
 
+USTRUCT()
+struct FHitScanTrace
+{
+	GENERATED_BODY()
+public:
+	UPROPERTY()
+	TEnumAsByte<EPhysicalSurface> SurfaceType;
+
+	UPROPERTY()
+	FVector_NetQuantize TraceTo;
+};
+
 UCLASS()
 class COOPGAME_API ASWeapon : public AActor
 {
@@ -54,11 +66,17 @@ protected:
 	float BaseDmg;
 	
 	UFUNCTION()
-	void PlayFireEffects();
+	void PlayFireEffects(FVector EndPoint);
+
+	UFUNCTION()
+	void PlayImpactEffects(EPhysicalSurface ImpactSurfaceType, FVector ImpactPoint);
 
 	virtual void Fire();
 	
-
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerFire();
+	void ServerFire_Implementation();
+	bool ServerFire_Validate();
 
 	UFUNCTION()
 	void Reload();
@@ -85,6 +103,12 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 	int32 TotalAmmo;
+
+	UPROPERTY(ReplicatedUsing=OnRep_HitScanTrace)
+	FHitScanTrace HitScanTrace;
+
+	UFUNCTION()
+	void OnRep_HitScanTrace();
 
 public:	
 	

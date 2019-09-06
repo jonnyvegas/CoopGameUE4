@@ -2,6 +2,7 @@
 
 
 #include "SHealthComp.h"
+#include "Net/UnrealNetwork.h"
 
 // Sets default values for this component's properties
 USHealthComp::USHealthComp()
@@ -9,6 +10,9 @@ USHealthComp::USHealthComp()
 
 	// ...
 	DefaultHealth = 100.f;
+
+	// Only hook on server.
+	SetIsReplicated(true);
 }
 
 
@@ -17,11 +21,14 @@ void USHealthComp::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// ...
-	AActor* MyOwner = GetOwner();
-	if (MyOwner)
+	// Make sure we are only setting this up on the server.
+	if (GetOwnerRole() == ROLE_Authority)
 	{
-		MyOwner->OnTakeAnyDamage.AddDynamic(this, &USHealthComp::OnTakeAnyDamage);
+		AActor* MyOwner = GetOwner();
+		if (MyOwner)
+		{
+			MyOwner->OnTakeAnyDamage.AddDynamic(this, &USHealthComp::OnTakeAnyDamage);
+		}
 	}
 	Health = DefaultHealth;
 }
@@ -33,4 +40,11 @@ void USHealthComp::OnTakeAnyDamage(AActor* DamagedActor, float Damage, const cla
 		Health = FMath::Clamp(Health - Damage, 0.0f, DefaultHealth);
 		OnHealthChanged.Broadcast(this, Health, Damage, DamageType, InstigatedBy, DamageCauser);
 	}
+}
+
+void USHealthComp::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(USHealthComp, Health);
 }

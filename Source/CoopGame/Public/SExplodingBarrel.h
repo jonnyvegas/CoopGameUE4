@@ -47,8 +47,11 @@ protected:
 	UFUNCTION()
 	void Explode();
 
+	UPROPERTY(ReplicatedUsing=OnRep_Exploded)
 	bool bExploded;
 
+	UFUNCTION()
+	void OnRep_Exploded();
 
 public:	
 	// Called every frame
