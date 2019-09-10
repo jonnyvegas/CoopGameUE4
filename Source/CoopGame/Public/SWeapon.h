@@ -6,8 +6,6 @@
 #include "GameFramework/Actor.h"
 #include "SWeapon.generated.h"
 
-class UDamageType;
-
 USTRUCT()
 struct FHitScanTrace
 {
@@ -39,7 +37,7 @@ protected:
 	
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	TSubclassOf<UDamageType> DmgType;
+	TSubclassOf<class UDamageType> DmgType;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "FX")
 	class UParticleSystem* MuzzleFlashParticle;
@@ -60,7 +58,7 @@ protected:
 	FVector TracerEndPoint;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
-	TSubclassOf<UCameraShake> FireCamShake;
+	TSubclassOf<class UCameraShake> FireCamShake;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 	float BaseDmg;
