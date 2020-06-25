@@ -25,13 +25,22 @@ protected:
 	UPROPERTY(VisibleDefaultsOnly, Category = "Components")
 	class USphereComponent* SphereComp;
 
+	UPROPERTY(VisibleDefaultsOnly, Category = "Components")
+	class USHealthComp* HealthComp;
+
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Components")
+	class UAudioComponent* AudioComp;
+
+	UPROPERTY(VisibleDefaultsOnly, Category = "Components")
+	USphereComponent* BuddySphereComp;
+
 	UPROPERTY()
 	FVector NextPoint;
 
 	UPROPERTY()
 	FVector ForceDir;
 
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY()
 	float DistanceToTarget;
 
 	UPROPERTY(EditDefaultsOnly)
@@ -42,9 +51,6 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly)
 	bool bUseVelocityChange;
-
-	UPROPERTY()
-	class USHealthComp* HealthComp;
 
 	UPROPERTY()
 	UMaterialInstanceDynamic* MatInstDyn;
@@ -70,6 +76,33 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	USoundBase* ExplosionSound;
 
+	UPROPERTY()
+	float CurrentVelocityLength;
+
+	UPROPERTY()
+	FVector2D MapInRange;
+
+	UPROPERTY()
+	FVector2D MapOutRange;
+
+	UPROPERTY()
+	float ClampedVolumeMultiplier;
+
+	UPROPERTY(BlueprintReadOnly)
+	uint8 NumBuddies;
+
+	UPROPERTY(BlueprintReadOnly)
+	uint8 MaxNumBuddies;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSubclassOf<ASTrackerBot> TrackerBotClass;
+
+	UPROPERTY()
+	FTimerHandle TimerHandle_RefreshPath;
+
+	UFUNCTION()
+	void UpdateMaterial();
+
 	UFUNCTION()
 	FVector GetNextPathPoint();
 
@@ -84,6 +117,21 @@ protected:
 
 	UFUNCTION()
 	void DamageSelf();
+
+	UFUNCTION()
+	void UpdateMovement();
+
+	UFUNCTION()
+	void AdjustRollingVolume();
+
+	UFUNCTION()
+	void BeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult);
+
+	UFUNCTION()
+	void EndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
+	UFUNCTION()
+	void RefreshPath();
 
 public:	
 	// Called every frame

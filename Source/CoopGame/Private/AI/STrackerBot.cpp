@@ -13,17 +13,23 @@
 #include "SCharacter.h"
 #include "TimerManager.h"
 #include "Sound/SoundCue.h"
+#include "Components/AudioComponent.h"
+#include "Engine.h"
 
 // Sets default values
 ASTrackerBot::ASTrackerBot()
 {
- 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
+	SphereComp = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComp"));
+	AudioComp = CreateDefaultSubobject<UAudioComponent>(TEXT("AudioComp"));
+	BuddySphereComp = CreateDefaultSubobject<USphereComponent>(TEXT("BuddySphereComp"));
 	RootComponent = MeshComp;
+
 	MeshComp->SetCanEverAffectNavigation(false);
 	MeshComp->SetSimulatePhysics(true);
-	SphereComp = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComp"));
+
 	SphereComp->SetSphereRadius(200.f);
 	SphereComp->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	SphereComp->SetCollisionResponseToAllChannels(ECR_Ignore);
@@ -33,34 +39,93 @@ ASTrackerBot::ASTrackerBot()
 	HealthComp = CreateDefaultSubobject<USHealthComp>(TEXT("HealthComp"));
 	HealthComp->OnHealthChanged.AddDynamic(this, &ASTrackerBot::HandleTakeDamage);
 
+	AudioComp->SetupAttachment(RootComponent);
+
+	BuddySphereComp->SetupAttachment(RootComponent);
+
+	BuddySphereComp->SetSphereRadius(1000.f);
+
+
 	bUseVelocityChange = false;
 	bStartedSelfDestruction = false;
 	MovementForce = 1000.f;
 	RequiredDistanceToTarget = 100.f;
-	ExplosionRadius = 200.f;
-	ExplosionDamage = 40.f;
+	ExplosionRadius = 350.f;
+	ExplosionDamage = 60.f;
+	CurrentVelocityLength = 0.f;
+	MapInRange.X = 10.f;
+	MapInRange.Y = 1000.f;
+	MapOutRange.X = 0.1f;
+	MapOutRange.Y = 2.f;
+	NumBuddies = 0;
+
+	BuddySphereComp->OnComponentBeginOverlap.AddDynamic(this, &ASTrackerBot::BeginOverlap);
+	BuddySphereComp->OnComponentEndOverlap.AddDynamic(this, &ASTrackerBot::EndOverlap);
 }
 
 // Called when the game starts or when spawned
 void ASTrackerBot::BeginPlay()
 {
 	Super::BeginPlay();
+	TArray<AActor*> BotActorArray;
+	if (TrackerBotClass)
+	{
+		UGameplayStatics::GetAllActorsOfClass(this, TrackerBotClass, BotActorArray);
+		MaxNumBuddies = BotActorArray.Num() - 1;
+	}
+	if (Role == ROLE_Authority)
+	{
+		NextPoint = GetNextPathPoint();
+	}
+}
 
-	NextPoint = GetNextPathPoint();
-	
+void ASTrackerBot::UpdateMaterial()
+{
+	if (!MatInstDyn)
+	{
+		MatInstDyn = MeshComp->CreateDynamicMaterialInstance(0, MeshComp->GetMaterial(0));
+	}
+	if (MatInstDyn && MaxNumBuddies > 0)
+	{
+		MatInstDyn->SetScalarParameterValue("PowerLevelAlpha", ((float)NumBuddies / (float)MaxNumBuddies));
+	}
 }
 
 FVector ASTrackerBot::GetNextPathPoint()
 {
-	ACharacter* PlayerCharacter = UGameplayStatics::GetPlayerCharacter(this, 0);
-	if (PlayerCharacter)
+	AActor* BestTarget = nullptr;
+	float NearestTargetDistance = FLT_MAX;
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
-		UNavigationPath * NavPath = UNavigationSystemV1::FindPathToActorSynchronously(this, GetActorLocation(), PlayerCharacter);
-		if (NavPath->PathPoints.Num() > 1)
+		APawn* TestPawn = It->Get();
+		if (TestPawn == nullptr || USHealthComp::IsFriendly(TestPawn, this))
+		{
+			continue;
+		}
+		USHealthComp* TestPawnHealthComp = Cast<USHealthComp>(TestPawn->GetComponentByClass(USHealthComp::StaticClass()));
+		if (TestPawnHealthComp && TestPawnHealthComp->GetHealth() > 0.f)
+		{
+			float Distance = (TestPawn->GetActorLocation() - GetActorLocation()).Size();
+			if (Distance < NearestTargetDistance)
+			{
+				BestTarget = TestPawn;
+				NearestTargetDistance = Distance;
+			}
+		}
+	}
+
+	if (BestTarget)
+	{
+
+		UNavigationPath * NavPath = UNavigationSystemV1::FindPathToActorSynchronously(this, GetActorLocation(), BestTarget);
+		GetWorldTimerManager().ClearTimer(TimerHandle_RefreshPath);
+		GetWorldTimerManager().SetTimer(TimerHandle_RefreshPath, this, &ASTrackerBot::RefreshPath, 5.0f, false);
+		if (NavPath && NavPath->PathPoints.Num() > 1)
 		{
 			return NavPath->PathPoints[1];
 		}
 	}
+
 	return GetActorLocation();
 }
 
@@ -85,19 +150,25 @@ void ASTrackerBot::SelfDestruct()
 	if (!bExploded)
 	{
 		bExploded = true;
-		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ExplosionEffect, GetActorLocation());
-
-		TArray<AActor*> IgnoredActors;
-		IgnoredActors.Add(this);
 		if (ExplosionEffect)
 		{
-			UGameplayStatics::ApplyRadialDamage(this, ExplosionDamage, GetActorLocation(), ExplosionRadius, nullptr, IgnoredActors, this, GetInstigatorController(), true);
+			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ExplosionEffect, GetActorLocation());
 		}
 		if (ExplosionSound)
 		{
 			UGameplayStatics::SpawnSoundAtLocation(this, ExplosionSound, GetActorLocation());
 		}
-		Destroy();
+
+		MeshComp->SetVisibility(false, true);
+		MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		if (Role == ROLE_Authority)
+		{
+			TArray<AActor*> IgnoredActors;
+			IgnoredActors.Add(this);
+			UGameplayStatics::ApplyRadialDamage(this, ExplosionDamage * (NumBuddies + 1), GetActorLocation(), ExplosionRadius, nullptr, IgnoredActors, this, GetInstigatorController(), true);
+			//Destroy();
+			SetLifeSpan(2.0f);
+		}
 	}
 }
 
@@ -106,10 +177,8 @@ void ASTrackerBot::DamageSelf()
 	UGameplayStatics::ApplyDamage(this, 20.f, GetInstigatorController(), this, nullptr);
 }
 
-// Called every frame
-void ASTrackerBot::Tick(float DeltaTime)
+void ASTrackerBot::UpdateMovement()
 {
-	Super::Tick(DeltaTime);
 	// Where the bot currently is
 	DistanceToTarget = (GetActorLocation() - NextPoint).Size();
 
@@ -130,14 +199,81 @@ void ASTrackerBot::Tick(float DeltaTime)
 	}
 }
 
+void ASTrackerBot::AdjustRollingVolume()
+{
+	if (AudioComp->Sound)
+	{
+		CurrentVelocityLength = GetVelocity().Size();
+		ClampedVolumeMultiplier = FMath::GetMappedRangeValueClamped(MapInRange, MapOutRange, CurrentVelocityLength);
+		AudioComp->SetVolumeMultiplier(ClampedVolumeMultiplier);
+	}
+}
+
+void ASTrackerBot::BeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult)
+{
+	ASTrackerBot* OverlappedBot = Cast<ASTrackerBot>(OtherActor);
+	if (OverlappedBot)
+	{
+		NumBuddies++;
+
+		UpdateMaterial();
+		/*if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(1, 3.f, FColor::Red, (TEXT("Num buddies: %s"), *FString::SanitizeFloat(NumBuddies)));
+		}*/
+
+	}
+}
+
+void ASTrackerBot::EndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	ASTrackerBot* OverlappedBot = Cast<ASTrackerBot>(OtherActor);
+	if (OverlappedBot)
+	{
+		if (NumBuddies - 1 < 0)
+		{
+			NumBuddies = 0;
+		}
+		else
+		{
+			NumBuddies--;
+		}
+		UpdateMaterial();
+	}
+	/*if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, (TEXT("Num buddies: %s"), *FString::SanitizeFloat(NumBuddies)));
+	}*/
+}
+
+void ASTrackerBot::RefreshPath()
+{
+	NextPoint = GetNextPathPoint();
+}
+
+// Called every frame
+void ASTrackerBot::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	if (Role == ROLE_Authority && !bExploded)
+	{
+		UpdateMovement();
+	}
+	AdjustRollingVolume();
+}
+
 void ASTrackerBot::NotifyActorBeginOverlap(AActor* OtherActor)
 {
-	if (!bStartedSelfDestruction)
+	Super::NotifyActorBeginOverlap(OtherActor);
+	if (!bStartedSelfDestruction && !bExploded)
 	{
 		ASCharacter* PlayerPawn = Cast<ASCharacter>(OtherActor);
-		if (PlayerPawn)
+		if (PlayerPawn && !USHealthComp::IsFriendly(OtherActor, this))
 		{
-			GetWorldTimerManager().SetTimer(TimerHandle_DamageSelf, this, &ASTrackerBot::DamageSelf, 0.5f, true);
+			if (Role == ROLE_Authority)
+			{
+				GetWorldTimerManager().SetTimer(TimerHandle_DamageSelf, this, &ASTrackerBot::DamageSelf, 0.25f, true);
+			}
 			bStartedSelfDestruction = true;
 			if (SelfDestructSound)
 			{

@@ -58,12 +58,7 @@ protected:
 	UFUNCTION()
 	void Fire();
 
-	UFUNCTION()
-	void StartFire();
-
-	UFUNCTION()
-	void StopFire();
-
+	
 	UFUNCTION()
 	void Reload();
 
@@ -73,7 +68,25 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Player")
 	bool bPawnDied;
 
+	
+
+	UFUNCTION()
+	void CheckJump();
+
+	UFUNCTION()
+	void EndJump();
+
 public:	
+
+	UPROPERTY(BlueprintReadWrite)
+	bool bCanDoubleJump;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	uint8 NumJumpsAllowed;
+
+	UPROPERTY(BlueprintReadOnly)
+	uint8 NumJumpsSoFar;
+
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
@@ -88,6 +101,15 @@ public:
 
 	void EndCrouch();
 
+	UFUNCTION(BlueprintCallable)
+	void StartFire();
+
+	UFUNCTION(BlueprintCallable)
+	void StopFire();
+
+
 	/** Returns	Pawn's eye location */
 	virtual FVector GetPawnViewLocation() const override;
+
+	virtual void Landed(const FHitResult& Hit) override;
 };

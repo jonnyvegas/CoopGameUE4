@@ -17,12 +17,22 @@ public:
 	// Sets default values for this component's properties
 	USHealthComp();
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "HealthComp")
+	uint8 TeamNum;
+
 protected:
+
+	UPROPERTY()
+	bool bIsDead;
+
 	// Called when the game starts
 	virtual void BeginPlay() override;
 
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = "HealthComp")
+	UPROPERTY(ReplicatedUsing = OnRep_Health, BlueprintReadOnly, Replicated, Category = "HealthComp")
 	float Health;
+
+	UFUNCTION()
+	void OnRep_Health(float OldHealth);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HealthComp")
 	float DefaultHealth;
@@ -31,8 +41,18 @@ protected:
 	void OnTakeAnyDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, 
 		class AController* InstigatedBy, AActor* DamageCauser);
 
+
 public:	
+
+	UFUNCTION()
+	float GetHealth() const;
 
 	UPROPERTY(BlueprintAssignable, Category = "Events")
 	FOnHealthChangedSignature OnHealthChanged;
+
+	UFUNCTION(BlueprintCallable, Category = "HealthComp")
+	void Heal(float HealAmount);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HealthComp")
+	static bool IsFriendly(AActor* ActorA, AActor* ActorB);
 };

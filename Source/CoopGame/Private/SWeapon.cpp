@@ -36,6 +36,7 @@ ASWeapon::ASWeapon()
 	SetReplicates(true);
 	NetUpdateFrequency = 66.f;
 	MinNetUpdateFrequency = 33.0f;
+	BulletSpread = 2.0f;
 }
 
 void ASWeapon::Fire()
@@ -55,6 +56,9 @@ void ASWeapon::Fire()
 			FRotator EyeRot;
 			GetOwner()->GetActorEyesViewPoint(EyeLoc, EyeRot);
 			FVector ShotDirection = EyeRot.Vector();
+
+			float HalfRad = FMath::DegreesToRadians(BulletSpread);
+			ShotDirection = FMath::VRandCone(ShotDirection, HalfRad, HalfRad);
 
 			FVector TraceEnd = EyeLoc + (ShotDirection * 10000.f);
 			FCollisionQueryParams QueryParams;
@@ -87,7 +91,7 @@ void ASWeapon::Fire()
 					}
 					PlayImpactEffects(SurfaceType, TheHit.ImpactPoint);
 					TracerEndPoint = TheHit.ImpactPoint;
-					UGameplayStatics::ApplyPointDamage(HitActor, ActualDamage, ShotDirection, TheHit, MyOwner->GetInstigatorController(), this, DmgType);
+					UGameplayStatics::ApplyPointDamage(HitActor, ActualDamage, ShotDirection, TheHit, MyOwner->GetInstigatorController(), MyOwner, DmgType);
 				}
 			}
 			if (Role == ROLE_Authority)

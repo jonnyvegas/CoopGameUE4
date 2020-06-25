@@ -17,7 +17,7 @@
 // Sets default values
 ASCharacter::ASCharacter()
 {
- 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
 	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComp"));
@@ -33,6 +33,9 @@ ASCharacter::ASCharacter()
 	GetCapsuleComponent()->SetCollisionResponseToChannel(COLLISION_WEAPON, ECR_Ignore);
 	HealthComp->OnHealthChanged.AddDynamic(this, &ASCharacter::OnHealthChanged);
 	bPawnDied = false;
+	NumJumpsAllowed = 1;
+	bCanDoubleJump = false;
+	NumJumpsSoFar = 0;
 }
 
 // Called when the game starts or when spawned
@@ -100,13 +103,31 @@ void ASCharacter::OnHealthChanged(USHealthComp* HealthComponent, float Health, f
 {
 	if (Health <= 0.f && !bPawnDied)
 	{
-		// Die!
+		// Shi ne!
 		GetMovementComponent()->StopMovementImmediately();
 		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		bPawnDied = true;
 		DetachFromControllerPendingDestroy();
 		SetLifeSpan(10.f);
 	}
+}
+
+void ASCharacter::CheckJump()
+{
+	if (!bCanDoubleJump)
+	{
+		Jump();
+	}
+	else if (NumJumpsSoFar < NumJumpsAllowed)
+	{
+		NumJumpsSoFar++;
+		LaunchCharacter(FVector(0.f, 0.f, 500.f), false, false);
+	}
+}
+
+void ASCharacter::EndJump()
+{
+	
 }
 
 // Called every frame
@@ -137,8 +158,8 @@ void ASCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
 	PlayerInputComponent->BindAction("Crouch", IE_Pressed, this, &ASCharacter::BeginCrouch);
 	PlayerInputComponent->BindAction("Crouch", IE_Released, this, &ASCharacter::EndCrouch);
 	
-	PlayerInputComponent->BindAction("JumpAction", IE_Pressed, this, &ASCharacter::Jump);
-	PlayerInputComponent->BindAction("JumpAction", IE_Released, this, &ASCharacter::StopJumping);
+	PlayerInputComponent->BindAction("JumpAction", IE_Pressed, this, &ASCharacter::CheckJump);
+	PlayerInputComponent->BindAction("JumpAction", IE_Released, this, &ASCharacter::EndJump);
 
 	PlayerInputComponent->BindAction("Zoom", IE_Pressed, this, &ASCharacter::BeginZoom);
 	PlayerInputComponent->BindAction("Zoom", IE_Released, this, &ASCharacter::EndZoom);
@@ -176,6 +197,11 @@ FVector ASCharacter::GetPawnViewLocation() const
 		return CameraComp->GetComponentLocation();
 	}
 	return Super::GetPawnViewLocation();
+}
+
+void ASCharacter::Landed(const FHitResult& Hit)
+{
+	NumJumpsSoFar = 0;
 }
 
 void ASCharacter::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
